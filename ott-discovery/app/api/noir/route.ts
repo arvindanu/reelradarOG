@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         if (!metadataResponse.ok) return null;
         const metadata = await metadataResponse.json();
         const files = Array.isArray(metadata.files) ? metadata.files : [];
-        const hasVideo = files.some((file: { name?: string; private?: string }) =>
+        const hasVideo = files.some((file: { name?: string; private?: string | boolean }) =>
           typeof file.name === 'string' && VIDEO_EXTENSIONS.test(file.name) && file.private !== 'true' && file.private !== true);
         if (!hasVideo) return null;
         const meta = metadata.metadata || {};
