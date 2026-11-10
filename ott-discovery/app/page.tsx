@@ -596,6 +596,13 @@ useEffect(() => {
         <div className="rr-showcase-heading">
           <div>
             <h1 className="rr-showcase-title">TRENDING NOW</h1>
+            <button type="button" className="rr-home-watchlist-button" onClick={() => {
+              setShowWishlist(true);
+              setPage(1);
+              window.setTimeout(() => document.querySelector('.catalog-section')?.scrollIntoView({ behavior: 'smooth' }), 80);
+            }}>
+              <Heart size={15} /> MY WATCHLIST <span>{wishlist.length}</span>
+            </button>
           </div>
         </div>
         <div
@@ -702,7 +709,7 @@ useEffect(() => {
     </section>
     <section className="catalog-section">
       <div className="section-heading"><div><div className="eyebrow">THE DISCOVERY FEED</div>
-        <h2>{search ? `Results for “${search}”` : filter || 'All picks'}</h2>
+        <h2>{showWishlist ? 'My Watchlist' : search ? `Results for “${search}”` : filter || 'All picks'}</h2>
         <p>Explore titles by mood and popularity. Streaming availability depends on your region.</p></div>
         <div className="result-count"><SlidersHorizontal size={15} /><span>{totalResults.toLocaleString()} TITLES</span></div>
       </div>

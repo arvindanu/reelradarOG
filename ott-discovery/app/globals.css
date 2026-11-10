@@ -146,3 +146,250 @@
   }
 }
 
+/* =========================================
+   REELRADAR — ROUTE TRANSITIONS
+   Applied by app/template.tsx on App Router navigation.
+   Opacity-only animation avoids transforms/filters that can change the
+   containing block for fixed-position dialogs and overlays.
+========================================= */
+.rr-route-transition {
+  animation: rr-route-fade-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rr-route-fade-in {
+  from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+
+/* Keep the transition quick and lightweight on the primary mobile layout. */
+@media (max-width: 760px) {
+  .rr-route-transition {
+    animation-duration: 180ms;
+  }
+}
+
+/* Respect the visitor's operating-system motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  .rr-route-transition {
+    animation: none;
+  }
+}
+
+
+/* =========================================================
+   NOIR — page-scoped monochrome cinema theme
+   Header/footer styling is activated only on the /noir route.
+   ========================================================= */
+.rr-noir-chrome {
+  --lime: #e8e8e8;
+  filter: grayscale(1);
+}
+.topbar.rr-noir-chrome {
+  color: #f2f2f2;
+  background: rgba(8,8,8,.96);
+  border-bottom-color: rgba(255,255,255,.18);
+  backdrop-filter: blur(18px);
+}
+.topbar.rr-noir-chrome .brand,
+.footer.rr-noir-chrome .brand { color: #f5f5f5; }
+.topbar.rr-noir-chrome .brand > span:nth-child(2) > span,
+.footer.rr-noir-chrome .brand > span:nth-child(2) > span { color: #fff; }
+.topbar.rr-noir-chrome .brand-mark,
+.footer.rr-noir-chrome .brand-mark {
+  color: #fff;
+  border-color: rgba(255,255,255,.48);
+}
+.topbar.rr-noir-chrome .desktop-nav button { color: #c7c7c7; }
+.topbar.rr-noir-chrome .desktop-nav button:hover,
+.topbar.rr-noir-chrome .desktop-nav button.nav-active {
+  color: #fff;
+  background: rgba(255,255,255,.1);
+}
+.topbar.rr-noir-chrome .desktop-nav button.nav-active { box-shadow: inset 0 -2px #fff; }
+.topbar.rr-noir-chrome .region-select,
+.topbar.rr-noir-chrome .region-select select { color: #eee; }
+.topbar.rr-noir-chrome .mobile-menu-button { color: #fff; }
+.footer.rr-noir-chrome {
+  color: #aaa;
+  background: #080808;
+  border-top: 1px solid rgba(255,255,255,.16);
+}
+.footer.rr-noir-chrome .footer-credit { color: #888; }
+.mobile-navigation-drawer.rr-noir-chrome {
+  color: #f2f2f2;
+  background: #101010;
+  border-left-color: rgba(255,255,255,.2);
+}
+.mobile-navigation-drawer.rr-noir-chrome .mobile-drawer-header { border-bottom-color: rgba(255,255,255,.15); }
+.mobile-navigation-drawer.rr-noir-chrome .mobile-drawer-links a { color: #c9c9c9; }
+.mobile-navigation-drawer.rr-noir-chrome .mobile-drawer-links a:hover,
+.mobile-navigation-drawer.rr-noir-chrome .mobile-drawer-links a.nav-active {
+  color: #fff;
+  border-color: rgba(255,255,255,.2);
+  background: rgba(255,255,255,.08);
+  box-shadow: inset 3px 0 #fff;
+}
+.mobile-navigation-drawer.rr-noir-chrome .mobile-drawer-close { color: #fff; }
+.mobile-drawer-overlay.rr-noir-chrome { background: rgba(0,0,0,.78); }
+
+/* Homepage Watchlist shortcut */
+.rr-home-watchlist-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid rgba(223,255,0,.35);
+  border-radius: 999px;
+  color: #f2f2f2;
+  background: rgba(255,255,255,.045);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+.rr-home-watchlist-button:hover { border-color: var(--lime); background: rgba(255,255,255,.1); }
+.rr-home-watchlist-button > span {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  color: #08090d;
+  background: var(--lime);
+  font-size: 10px;
+}
+@media (max-width: 760px) {
+  .rr-home-watchlist-button { margin-top: 10px; min-height: 36px; font-size: 9px; }
+}
+
+/* NOIR content */
+.noir-page {
+  min-height: 100vh;
+  overflow: hidden;
+  color: #ededed;
+  background: #080808;
+  font-family: 'DM Sans', Arial, sans-serif;
+}
+.noir-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 480px;
+  padding: 78px max(6vw, 24px) 72px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.98), rgba(0,0,0,.82) 48%, rgba(0,0,0,.48)),
+    url('https://archive.org/services/img/feature_films') center 38% / cover,
+    #111;
+  border-bottom: 1px solid #303030;
+}
+.noir-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .22;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.035) 4px);
+}
+.noir-film-grain {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .12;
+  background-image: url(\"data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E\");
+}
+.noir-hero-inner { width: min(100%, 1240px); margin: 0 auto; position: relative; z-index: 1; }
+.noir-kicker, .noir-eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  color: #bdbdbd; font-size: 10px; font-weight: 800; letter-spacing: .2em;
+}
+.noir-kicker span { width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 12px #fff; }
+.noir-hero h1 {
+  margin: 22px 0 6px; color: #f5f5f5;
+  font: 800 clamp(72px, 13vw, 158px)/.85 'Space Grotesk', sans-serif;
+  letter-spacing: -.075em;
+}
+.noir-hero h1 span { color: #777; }
+.noir-tagline { margin: 22px 0 10px; color: #eee; font-size: clamp(18px, 2.2vw, 27px); font-weight: 600; }
+.noir-intro { max-width: 570px; margin: 0; color: #aaa; font-size: 14px; line-height: 1.8; }
+.noir-search {
+  display: flex; align-items: center; gap: 12px;
+  width: min(100%, 560px); min-height: 54px; margin-top: 28px;
+  padding: 5px 6px 5px 16px; border: 1px solid #444; border-radius: 7px;
+  color: #aaa; background: rgba(12,12,12,.85);
+}
+.noir-search input { flex: 1; min-width: 0; border: 0; outline: 0; color: #fff; background: transparent; font-size: 13px; }
+.noir-search button {
+  min-height: 40px; padding: 0 17px; border: 1px solid #ddd; border-radius: 4px;
+  color: #080808; background: #eee; font-size: 10px; font-weight: 900; letter-spacing: .12em;
+}
+.noir-library { width: min(100% - 48px, 1380px); margin: 0 auto; padding: 54px 0 64px; }
+.noir-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.noir-section-heading h2 { margin: 8px 0 0; color: #f2f2f2; font-size: clamp(25px, 3vw, 36px); letter-spacing: -.04em; }
+.noir-count { display: inline-flex; align-items: center; gap: 8px; color: #999; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.noir-categories { display: flex; flex-wrap: wrap; gap: 8px; margin: 26px 0 28px; }
+.noir-categories button {
+  min-height: 37px; padding: 0 14px; border: 1px solid #353535; border-radius: 999px;
+  color: #aaa; background: #111; font-size: 11px; font-weight: 700;
+}
+.noir-categories button.active, .noir-categories button:hover { color: #080808; border-color: #eee; background: #eee; }
+.noir-grid, .noir-loading-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 26px 18px; }
+.noir-film-card { min-width: 0; overflow: hidden; border: 1px solid #292929; border-radius: 7px; background: #111; }
+.noir-poster { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; padding: 0; overflow: hidden; border: 0; color: #fff; background: #222; text-align: left; }
+.noir-poster img { width: 100%; height: 100%; display: block; object-fit: cover; filter: grayscale(1); transition: transform .4s ease, opacity .3s ease; }
+.noir-poster:hover img { transform: scale(1.04); opacity: .72; }
+.noir-poster-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: #888; background: linear-gradient(135deg,#292929,#080808); }
+.noir-play { position: absolute; left: 50%; top: 50%; display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; color: #fff; background: rgba(0,0,0,.65); transform: translate(-50%,-50%); }
+.noir-year { position: absolute; left: 10px; bottom: 10px; padding: 5px 7px; color: #111; background: #eee; font-size: 9px; font-weight: 900; letter-spacing: .1em; }
+.noir-film-info { padding: 14px; }
+.noir-film-info h3 { margin: 0; overflow: hidden; color: #eee; font-size: 14px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.noir-film-info p { margin: 7px 0 14px; overflow: hidden; color: #888; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.noir-watch-link, .noir-film-info > a { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; padding: 0; border: 0; color: #eee; background: transparent; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-decoration: none; }
+.noir-film-info > a { margin-top: 12px; color: #888; }
+.noir-watch-link:hover, .noir-film-info > a:hover { color: #fff; text-decoration: underline; }
+.noir-skeleton { min-height: 230px; border-radius: 7px; background: linear-gradient(100deg,#171717 20%,#242424 40%,#171717 60%); background-size: 200% 100%; animation: noir-shimmer 1.5s linear infinite; }
+@keyframes noir-shimmer { to { background-position-x: -200%; } }
+.noir-message { padding: 48px 20px; border: 1px solid #292929; border-radius: 7px; text-align: center; background: #111; }
+.noir-message h3 { margin: 0 0 8px; color: #eee; }
+.noir-message p { color: #999; font-size: 13px; }
+.noir-message button { padding: 10px 16px; border: 1px solid #ddd; border-radius: 4px; color: #111; background: #eee; }
+.noir-pagination { display: flex; align-items: center; justify-content: center; gap: 24px; margin: 34px 0 22px; color: #888; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.noir-pagination button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 10px; border: 1px solid #333; border-radius: 4px; color: #ddd; background: #111; font-size: 9px; font-weight: 800; }
+.noir-pagination button:disabled { opacity: .35; cursor: not-allowed; }
+.noir-rights-note { max-width: 850px; margin: 24px auto 0; color: #777; font-size: 10px; line-height: 1.7; text-align: center; }
+.noir-player-backdrop { position: fixed; inset: 0; z-index: 100000; display: grid; place-items: center; padding: 24px; overflow-y: auto; background: rgba(0,0,0,.92); backdrop-filter: blur(8px); }
+.noir-player-modal { width: min(100%, 1000px); margin: auto; padding: 18px; border: 1px solid #444; border-radius: 8px; color: #eee; background: #101010; box-shadow: 0 25px 100px #000; }
+.noir-player-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-bottom: 14px; }
+.noir-player-head span { color: #999; font-size: 9px; font-weight: 900; letter-spacing: .18em; }
+.noir-player-head h2 { margin: 5px 0 0; color: #f2f2f2; font-size: 18px; }
+.noir-player-head > button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid #444; border-radius: 50%; color: #eee; background: #1b1b1b; }
+.noir-player-frame { aspect-ratio: 16 / 9; background: #000; }
+.noir-player-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.noir-player-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid #303030; color: #999; font-size: 10px; }
+.noir-player-meta span, .noir-player-meta a { display: inline-flex; align-items: center; gap: 7px; }
+.noir-player-meta a { color: #ddd; text-decoration: none; }
+.noir-player-description, .noir-player-rights { color: #aaa; font-size: 12px; line-height: 1.65; }
+.noir-player-rights { padding: 10px; border: 1px solid #333; background: #171717; }
+@media (max-width: 1000px) { .noir-grid, .noir-loading-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 700px) {
+  .noir-hero { min-height: 430px; padding: 58px 20px 48px; }
+  .noir-library { width: calc(100% - 32px); padding: 38px 0 48px; }
+  .noir-section-heading { align-items: start; flex-direction: column; }
+  .noir-grid, .noir-loading-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
+  .noir-film-info { padding: 10px; }
+  .noir-film-info h3 { font-size: 12px; }
+  .noir-film-info p { font-size: 10px; }
+  .noir-film-info > a { display: flex; margin-top: 10px; }
+  .noir-player-backdrop { padding: 10px; }
+  .noir-player-modal { padding: 12px; }
+  .noir-player-head h2 { font-size: 15px; }
+  .noir-player-meta { flex-direction: column; }
+}
+@media (max-width: 390px) { .noir-grid, .noir-loading-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) {
+  .noir-poster img, .noir-skeleton { transition: none !important; animation: none !important; }
+}

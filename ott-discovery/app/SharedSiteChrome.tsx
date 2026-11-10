@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  CalendarClock, Clapperboard, Clock3, Dices, GitMerge, Globe2, Heart,
-  ChevronDown, Home as HomeIcon, Hourglass, Menu, ScanEye, ScanSearch, Sparkles, X,
+  CalendarClock, Clapperboard, Clock3, Dices, GitMerge, Globe2,
+  ChevronDown, Home as HomeIcon, Hourglass, Menu, ScanEye, ScanSearch, Sparkles, X, Film,
 } from 'lucide-react';
 import { COUNTRIES } from '@/lib/catalog';
 
 const NAV_ITEMS = [
   { key: 'home', label: 'Home', href: '/', Icon: HomeIcon },
-  { key: 'wishlist', label: 'My Watchlist', href: '/?view=watchlist', Icon: Heart },
+  { key: 'noir', label: 'NOIR', href: '/noir', Icon: Film },
   { key: 'collide', label: 'Movie Collide', href: '/collide', Icon: GitMerge },
   { key: 'roulette', label: 'Movie Roulette', href: '/roulette', Icon: Dices },
   { key: 'timeliner', label: 'Timeliner', href: '/timeliner', Icon: Clock3 },
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
 export default function SharedSiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const isNoir = pathname === '/noir';
   const [menuOpen, setMenuOpen] = useState(false);
   const [region, setRegion] = useState('IN');
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -60,7 +61,7 @@ export default function SharedSiteChrome({ children }: { children: React.ReactNo
   };
 
   return <>
-    <header className="topbar rr-shared-topbar">
+    <header className={`topbar rr-shared-topbar${isNoir ? ' rr-noir-chrome' : ''}`}>
       <Link className="brand" href="/" aria-label="REELRADAR Home">
         <span className="brand-mark"><Clapperboard size={19} strokeWidth={1.7} /></span>
         <span>REEL<span>RADAR</span></span><i />
@@ -85,15 +86,15 @@ export default function SharedSiteChrome({ children }: { children: React.ReactNo
         </button>
       </div>
     </header>
-    <button className={`mobile-drawer-overlay ${menuOpen ? 'is-open' : ''}`} type="button" aria-label="Close navigation menu" tabIndex={menuOpen ? 0 : -1} onClick={() => setMenuOpen(false)} />
-    <aside ref={drawerRef} id="mobile-navigation-drawer" className={`mobile-navigation-drawer ${menuOpen ? 'is-open' : ''}`} role="dialog" aria-modal="true" aria-label="Navigation menu" aria-hidden={!menuOpen}>
+    <button className={`mobile-drawer-overlay ${menuOpen ? 'is-open' : ''}${isNoir ? ' rr-noir-chrome' : ''}`} type="button" aria-label="Close navigation menu" tabIndex={menuOpen ? 0 : -1} onClick={() => setMenuOpen(false)} />
+    <aside ref={drawerRef} id="mobile-navigation-drawer" className={`mobile-navigation-drawer ${menuOpen ? 'is-open' : ''}${isNoir ? ' rr-noir-chrome' : ''}`} role="dialog" aria-modal="true" aria-label="Navigation menu" aria-hidden={!menuOpen}>
       <div className="mobile-drawer-header"><span>MENU</span><button type="button" className="mobile-drawer-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X size={20} /></button></div>
       <nav className="mobile-drawer-links" aria-label="Main navigation">
-        {NAV_ITEMS.map(({ key, label, href, Icon }) => <Link key={key} href={href} className={isActive(key) ? 'nav-active' : ''} onClick={() => { setMenuOpen(false); if (key === 'home') window.dispatchEvent(new Event('reelradar-reset-home')); if (key === 'wishlist') window.dispatchEvent(new Event('reelradar-show-wishlist')); }}><Icon size={17} />{label}</Link>)}
+        {NAV_ITEMS.map(({ key, label, href, Icon }) => <Link key={key} href={href} className={isActive(key) ? 'nav-active' : ''} onClick={() => { setMenuOpen(false); if (key === 'home') window.dispatchEvent(new Event('reelradar-reset-home')); }}><Icon size={17} />{label}</Link>)}
       </nav>
     </aside>
     <div className="rr-page-content">{children}</div>
-    <footer className="footer rr-shared-footer">
+    <footer className={`footer rr-shared-footer${isNoir ? ' rr-noir-chrome' : ''}`}>
       <Link className="brand" href="/"><span className="brand-mark"><Clapperboard size={17} strokeWidth={1.7} /></span><span>REEL<span>RADAR</span></span></Link>
       <p>One place for everything worth watching.</p>
       <span className="footer-credit">MOVIE DATA &amp; IMAGES BY TMDB · NOT AN OFFICIAL TMDB PRODUCT</span>

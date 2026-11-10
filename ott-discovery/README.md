@@ -53,3 +53,12 @@ Do not put the TMDB token in a `NEXT_PUBLIC_` variable. The API route keeps it o
 - YouTube trailer thumbnails are available only when TMDB has a YouTube video key. The modal falls back to a YouTube search link if no trailer key is available.
 - TMDB attribution and branding requirements apply. This is an unofficial project and is not endorsed or certified by TMDB.
 - For production/commercial use, review TMDB API terms and any third-party provider data licensing requirements.
+
+
+## NOIR — Internet Archive classic cinema
+
+The `/noir` page searches public Internet Archive movie records, checks item metadata for video files, and opens the Archive's embedded player. Search and public metadata reads do not require an Internet Archive API key or account. The implementation uses server-side requests through `/api/noir`, with caching, so browser CORS restrictions do not apply.
+
+The existing TMDB integration still requires `TMDB_ACCESS_TOKEN` as described above. No additional Internet Archive credentials are required for public search, metadata reads, or embedded playback.
+
+**Rights and availability:** Internet Archive hosts material uploaded by many contributors. A public record or playable file is not automatically public domain or licensed for reuse. The NOIR page displays available rights/license metadata and links to each item record; verify the item-level rights statement before reuse, redistribution, or commercial use. Some records may be unavailable, have restricted files, or not play in every browser/region.
