@@ -1,0 +1,566 @@
+import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const TMDB_BASE = "https://api.themoviedb.org/3";
+const IMAGE_BASE = "https://image.tmdb.org/t/p";
+
+const CACHE_SECONDS = 60 * 60 * 6;
+
+type TMDBMovie = {
+  id: number;
+  title?: string;
+  original_title?: string;
+  overview?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  release_date?: string;
+  vote_average?: number;
+  original_language?: string;
+  runtime?: number | null;
+  genres?: Array<{ id: number; name: string }>;
+};
+
+type TimelineMovie = {
+  id: number;
+  title: string;
+  originalTitle: string;
+  overview: string;
+  poster: string | null;
+  backdrop: string | null;
+  releaseDate: string;
+  year: string;
+  rating: number;
+  language: string;
+  runtime: number | null;
+  genres: string[];
+};
+
+type ChronologyResult = {
+  orderedMovieIds: number[];
+  confidence: "high" | "medium" | "low";
+  explanation: string;
+};
+
+type ChronologyCacheEntry = {
+  expiresAt: number;
+  result: ChronologyResult;
+};
+
+const chronologyCache = new Map<string, ChronologyCacheEntry>();
+
+function getEnv(name: string): string {
+  return process.env[name]?.trim() || "";
+}
+
+async function tmdb<T>(path: string): Promise<T> {
+  const token = getEnv("TMDB_ACCESS_TOKEN");
+  const apiKey = getEnv("TMDB_API_KEY");
+
+  if (!token && !apiKey) {
+    throw new Error("TMDB credentials are missing.");
+  }
+
+  const url = new URL(`${TMDB_BASE}${path}`);
+
+  if (!token && apiKey) {
+    url.searchParams.set("api_key", apiKey);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+          accept: "application/json",
+        }
+      : {
+          accept: "application/json",
+        },
+    next: { revalidate: CACHE_SECONDS },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `TMDB request failed (${response.status}): ${body.slice(0, 300)}`
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
+function image(path?: string | null, size = "w500"): string | null {
+  return path ? `${IMAGE_BASE}/${size}${path}` : null;
+}
+
+function toMovie(movie: TMDBMovie): TimelineMovie {
+  const releaseDate = movie.release_date || "";
+
+  return {
+    id: Number(movie.id),
+    title: movie.title || movie.original_title || "Untitled",
+    originalTitle: movie.original_title || movie.title || "Untitled",
+    overview: movie.overview || "",
+    poster: image(movie.poster_path),
+    backdrop: image(movie.backdrop_path, "w1280"),
+    releaseDate,
+    year: releaseDate ? releaseDate.slice(0, 4) : "TBA",
+    rating: Number(movie.vote_average || 0),
+    language: movie.original_language || "",
+    runtime:
+      typeof movie.runtime === "number" && movie.runtime > 0
+        ? movie.runtime
+        : null,
+    genres: Array.isArray(movie.genres)
+      ? movie.genres.map((genre) => genre.name).filter(Boolean)
+      : [],
+  };
+}
+
+function sortByReleaseDate(movies: TimelineMovie[]): TimelineMovie[] {
+  return [...movies].sort((a, b) => {
+    if (!a.releaseDate && !b.releaseDate) return a.id - b.id;
+    if (!a.releaseDate) return 1;
+    if (!b.releaseDate) return -1;
+
+    const dateComparison = a.releaseDate.localeCompare(b.releaseDate);
+    return dateComparison || a.id - b.id;
+  });
+}
+
+function fallbackChronology(
+  movies: TimelineMovie[],
+  explanation: string
+): ChronologyResult {
+  return {
+    orderedMovieIds: sortByReleaseDate(movies).map((movie) => movie.id),
+    confidence: "low",
+    explanation,
+  };
+}
+
+function getChronologyCacheKey(
+  collectionId: number,
+  movies: TimelineMovie[]
+): string {
+  const ids = movies
+    .map((movie) => movie.id)
+    .sort((a, b) => a - b)
+    .join(",");
+
+  return `${collectionId}:${ids}`;
+}
+
+function readGeminiText(data: any): string {
+  const parts = data?.candidates?.[0]?.content?.parts;
+
+  if (!Array.isArray(parts)) return "";
+
+  return parts
+    .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+    .join("\n")
+    .trim();
+}
+
+function parseGeminiJson(raw: string): ChronologyResult | null {
+  if (!raw) return null;
+
+  const cleaned = raw
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try {
+    const parsed = JSON.parse(cleaned);
+
+    if (!parsed || !Array.isArray(parsed.orderedMovieIds)) {
+      return null;
+    }
+
+    const confidence = ["high", "medium", "low"].includes(
+      String(parsed.confidence).toLowerCase()
+    )
+      ? (String(parsed.confidence).toLowerCase() as
+          | "high"
+          | "medium"
+          | "low")
+      : "medium";
+
+    return {
+      orderedMovieIds: parsed.orderedMovieIds.map(Number),
+      confidence,
+      explanation:
+        typeof parsed.explanation === "string"
+          ? parsed.explanation.slice(0, 500)
+          : "Story chronology generated by Gemini AI.",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function validateChronology(
+  result: ChronologyResult | null,
+  movies: TimelineMovie[]
+): ChronologyResult | null {
+  if (!result) return null;
+
+  const expectedIds = new Set(movies.map((movie) => movie.id));
+  const receivedIds = result.orderedMovieIds;
+
+  if (receivedIds.length !== movies.length) return null;
+
+  if (new Set(receivedIds).size !== movies.length) return null;
+
+  if (!receivedIds.every((id) => expectedIds.has(id))) return null;
+
+  return result;
+}
+
+async function generateChronology(
+  collectionId: number,
+  collectionName: string,
+  movies: TimelineMovie[]
+): Promise<{
+  result: ChronologyResult;
+  source: "gemini" | "release";
+}> {
+  if (movies.length <= 1) {
+    return {
+      result: fallbackChronology(
+        movies,
+        "This collection does not contain enough movies to determine a separate story order."
+      ),
+      source: "release",
+    };
+  }
+
+  const apiKey = getEnv("GEMINI_API_KEY");
+
+  if (!apiKey) {
+    return {
+      result: fallbackChronology(
+        movies,
+        "Gemini API is not configured. Showing the actual theatrical release order instead."
+      ),
+      source: "release",
+    };
+  }
+
+  // Very large collections are kept in release order rather than sending
+  // an incomplete selection to Gemini and pretending it is a full chronology.
+  if (movies.length > 80) {
+    return {
+      result: fallbackChronology(
+        movies,
+        "This collection is too large for a reliable single-pass chronology analysis. Showing release order."
+      ),
+      source: "release",
+    };
+  }
+
+  const cacheKey = getChronologyCacheKey(collectionId, movies);
+  const cached = chronologyCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return {
+      result: cached.result,
+      source: cached.result.confidence === "low" &&
+      cached.result.explanation.includes("Showing")
+        ? "release"
+        : "gemini",
+    };
+  }
+
+  const model = getEnv("GEMINI_MODEL") || "gemini-3.5-flash-lite";
+  const safeModel = model.replace(/^models\//, "");
+
+  const movieData = movies.map((movie) => ({
+    id: movie.id,
+    title: movie.title,
+    originalTitle: movie.originalTitle,
+    releaseDate: movie.releaseDate || "Unknown",
+    overview: movie.overview.slice(0, 900),
+    genres: movie.genres,
+  }));
+
+  const prompt = `
+You are an expert film-franchise continuity analyst.
+
+Your task is to determine the IN-UNIVERSE STORY CHRONOLOGY of the movies
+in the TMDB collection below.
+
+Collection: ${collectionName}
+
+Important rules:
+1. Use only the movies and IDs supplied in the JSON data.
+2. Return every supplied movie ID exactly once.
+3. Do not invent, remove, rename, or add movies.
+4. Determine story order from narrative events, prequels, sequels,
+   character ages, historical periods, and explicit story connections.
+5. Do not simply sort by theatrical release date.
+6. If a movie's position is genuinely unclear, preserve its relative
+   release order rather than inventing a placement.
+7. If the collection contains reboots, alternate continuities, or
+   loosely connected entries, do not pretend they share one exact timeline.
+8. Use the release date and synopsis as evidence, but do not treat the
+   release date as the story date.
+9. Be conservative. A plausible order is better than an overconfident
+   fabricated one.
+
+Return ONLY valid JSON in this exact structure:
+
+{
+  "orderedMovieIds": [123, 456, 789],
+  "confidence": "high",
+  "explanation": "A short explanation of the chronology."
+}
+
+Movie data:
+${JSON.stringify(movieData)}
+`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        safeModel
+      )}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json",
+            maxOutputTokens: 4096,
+          },
+        }),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Gemini returned HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawText = readGeminiText(data);
+    const parsed = parseGeminiJson(rawText);
+    const validated = validateChronology(parsed, movies);
+
+    if (!validated) {
+      throw new Error("Gemini returned an invalid movie ordering.");
+    }
+
+    chronologyCache.set(cacheKey, {
+      expiresAt: Date.now() + CACHE_SECONDS * 1000,
+      result: validated,
+    });
+
+    // Keep the in-memory cache bounded.
+    if (chronologyCache.size > 100) {
+      const oldestKey = chronologyCache.keys().next().value;
+      if (oldestKey) chronologyCache.delete(oldestKey);
+    }
+
+    return {
+      result: validated,
+      source: "gemini",
+    };
+  } catch (error) {
+    console.error("Timeliner Gemini chronology error:", error);
+
+    return {
+      result: fallbackChronology(
+        movies,
+        "Gemini could not generate a reliable story order right now. Showing actual release order instead."
+      ),
+      source: "release",
+    };
+  }
+}
+
+async function getCollectionMovies(
+  parts: Array<{ id: number; [key: string]: any }>
+): Promise<TimelineMovie[]> {
+  const uniqueParts = Array.from(
+    new Map(parts.map((part) => [Number(part.id), part])).values()
+  );
+
+  const results: TimelineMovie[] = [];
+  let index = 0;
+
+  const worker = async () => {
+    while (index < uniqueParts.length) {
+      const current = uniqueParts[index++];
+
+      try {
+        const details = await tmdb<TMDBMovie>(
+          `/movie/${current.id}?language=en-US`
+        );
+
+        results.push(toMovie(details));
+      } catch {
+        // Keep the collection entry even if an individual detail request fails.
+        results.push(
+          toMovie({
+            ...current,
+            id: Number(current.id),
+          } as TMDBMovie)
+        );
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(5, uniqueParts.length) },
+      () => worker()
+    )
+  );
+
+  return sortByReleaseDate(results);
+}
+
+function response(
+  body: unknown,
+  status = 200
+): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=86400`,
+    },
+  });
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get("action") || "search";
+
+  try {
+    if (action === "search" || action === "list") {
+      const query = (searchParams.get("query") || "").trim();
+      const page = Math.max(
+        1,
+        Math.min(500, Number(searchParams.get("page") || 1))
+      );
+
+      if (query.length < 2) {
+        return response({
+          results: [],
+          totalResults: 0,
+          totalPages: 0,
+          page,
+        });
+      }
+
+      const data = await tmdb<{
+        results: Array<{
+          id: number;
+          name: string;
+          overview?: string;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+        }>;
+        total_results: number;
+        total_pages: number;
+      }>(
+        `/search/collection?query=${encodeURIComponent(
+          query
+        )}&page=${page}&language=en-US`
+      );
+
+      const results = (data.results || []).map((collection) => ({
+        id: String(collection.id),
+        name: collection.name,
+        overview: collection.overview || "",
+        poster: image(collection.poster_path),
+        backdrop: image(collection.backdrop_path, "w1280"),
+        kind: "collection" as const,
+        hasChronology: true,
+      }));
+
+      return response({
+        results,
+        totalResults: data.total_results || 0,
+        totalPages: data.total_pages || 0,
+        page,
+      });
+    }
+
+    if (action === "collection") {
+      const rawId = searchParams.get("id") || "";
+      const collectionId = Number(rawId);
+
+      if (!Number.isInteger(collectionId) || collectionId <= 0) {
+        return response({ error: "Invalid collection ID." }, 400);
+      }
+
+      const collection = await tmdb<{
+        id: number;
+        name: string;
+        overview?: string;
+        poster_path?: string | null;
+        backdrop_path?: string | null;
+        parts?: Array<{ id: number; [key: string]: any }>;
+      }>(`/collection/${collectionId}?language=en-US`);
+
+      const releaseOrder = await getCollectionMovies(
+        collection.parts || []
+      );
+
+      const chronology = await generateChronology(
+        collectionId,
+        collection.name,
+        releaseOrder
+      );
+
+      const movieMap = new Map(
+        releaseOrder.map((movie) => [movie.id, movie])
+      );
+
+      const chronologicalMovies = chronology.result.orderedMovieIds
+        .map((id) => movieMap.get(id))
+        .filter((movie): movie is TimelineMovie => Boolean(movie));
+
+      return response({
+        id: collection.id,
+        name: collection.name,
+        overview: collection.overview || "",
+        poster: image(collection.poster_path),
+        backdrop: image(collection.backdrop_path, "w1280"),
+        totalMovies: releaseOrder.length,
+        releaseOrder,
+        chronologicalMovies,
+        chronologySource: chronology.source,
+        chronologyConfidence: chronology.result.confidence,
+        chronologyNote: chronology.result.explanation,
+      });
+    }
+
+    return response({ error: "Unknown action." }, 400);
+  } catch (error) {
+    console.error("Timeliner API error:", error);
+
+    return response(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong while loading the timeline.",
+      },
+      500
+    );
+  }
+}
